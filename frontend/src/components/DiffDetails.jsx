@@ -1,3 +1,4 @@
+// src/components/DiffDetails.jsx
 import React from 'react';
 
 const DiffDetails = ({ lineDiffs, onDiffClick }) => {

@@ -2,170 +2,154 @@ import React, { useRef, useEffect } from 'react';
 import './SideBySideDiffViewer.css';
 
 const SideBySideDiffViewer = ({ originalText, modifiedText, diffs, onDiffClick }) => {
-  const leftRef = useRef();
-  const rightRef = useRef();
+  const leftRef = useRef(null);
+  const rightRef = useRef(null);
+  const syncRef = useRef(null);
+  const leftContentRef = useRef(null);
+  const rightContentRef = useRef(null);
 
-  // 同步滾動
-  const handleScroll = (side) => (e) => {
-    const syncTarget = side === 'left' ? rightRef : leftRef;
-    if (syncTarget.current) {
-      syncTarget.current.scrollTop = e.target.scrollTop;
-    }
+  // 中央捲軸滾動時，同步左右
+  const handleCentralScroll = (e) => {
+    const top = e.target.scrollTop;
+    if (leftContentRef.current) leftContentRef.current.style.transform = `translateY(-${top}px)`;
+    if (rightContentRef.current) rightContentRef.current.style.transform = `translateY(-${top}px)`;
   };
 
-  // 分離原始文本和修改後文本為行
+  // 讓中間的空白容器高度跟內容一樣
+  useEffect(() => {
+    if (syncRef.current && leftRef.current) {
+      const h = Math.max(
+        leftRef.current.querySelector('.pane-content').scrollHeight,
+        rightRef.current.querySelector('.pane-content').scrollHeight
+      );
+      syncRef.current.innerHTML = `<div style="height:${h}px"></div>`;
+    }
+  }, [originalText, modifiedText]);
+
+  // 左右面板高度變化時也更新中央捲軸高度
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      if (syncRef.current && leftRef.current) {
+        const h = Math.max(
+          leftRef.current.querySelector('.pane-content').scrollHeight,
+          rightRef.current.querySelector('.pane-content').scrollHeight
+        );
+        syncRef.current.innerHTML = `<div style="height:${h}px"></div>`;
+      }
+    });
+    
+    if (leftRef.current) {
+      resizeObserver.observe(leftRef.current);
+    }
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // 切行
   const originalLines = originalText.split('\n');
   const modifiedLines = modifiedText.split('\n');
 
-  // 計算差異行的對應，將字符級別的差異轉換為行級別
-  const processedDiffs = [];
-  let origIndex = 0;
-  let modIndex = 0;
-
-  // 處理每個 diff，將其映射到行
+  // 字元級 diffs 轉行級
   const computeLineDiffs = () => {
-    // 初始化行差異數組
     const lineDiffs = [];
-    
-    // 構建行對應關係的映射
-    let origLineMapping = [];
-    let modLineMapping = [];
-    let currOrigLine = 0;
-    let currModLine = 0;
-    
-    // 對每個差異進行處理
-    for (const diff of diffs) {
-      const { operation, text } = diff;
-      const lines = text.split('\n');
-      
-      // 根據操作類型更新行映射
-      for (let i = 0; i < lines.length; i++) {
-        const isLastLine = i === lines.length - 1;
-        
-        if (operation === 'EQUAL') {
-          origLineMapping.push(currOrigLine);
-          modLineMapping.push(currModLine);
-          
-          if (!isLastLine || text.endsWith('\n')) {
-            currOrigLine++;
-            currModLine++;
-          }
-        } else if (operation === 'INSERT') {
-          modLineMapping.push(currModLine);
-          
-          if (!isLastLine || text.endsWith('\n')) {
-            currModLine++;
-          }
-        } else if (operation === 'DELETE') {
-          origLineMapping.push(currOrigLine);
-          
-          if (!isLastLine || text.endsWith('\n')) {
-            currOrigLine++;
-          }
-        }
-      }
-    }
-    
-    // 標記每行的差異類型
     for (let i = 0; i < Math.max(originalLines.length, modifiedLines.length); i++) {
-      // 檢查原始行在修改後是否存在
-      const origLineExists = i < originalLines.length;
-      const modLineExists = i < modifiedLines.length;
-      
-      // 判斷差異類型
-      let diffType = 'equal';
-      
-      if (origLineExists && modLineExists) {
-        if (originalLines[i] !== modifiedLines[i]) {
-          diffType = 'replaced';
-        }
-      } else if (origLineExists) {
-        diffType = 'deleted';
-      } else if (modLineExists) {
-        diffType = 'inserted';
+      let type = 'equal';
+      const origExists = i < originalLines.length;
+      const modExists  = i < modifiedLines.length;
+      if (origExists && modExists) {
+        if (originalLines[i] !== modifiedLines[i]) type = 'replaced';
+      } else if (origExists) {
+        type = 'deleted';
+      } else {
+        type = 'inserted';
       }
-      
-      // 添加到行差異數組
       lineDiffs.push({
-        leftLine: i,
+        leftLine:  i,
         rightLine: i,
-        leftText: origLineExists ? originalLines[i] : '',
-        rightText: modLineExists ? modifiedLines[i] : '',
-        type: diffType
+        leftText:  origExists ? originalLines[i] : '',
+        rightText: modExists  ? modifiedLines[i] : '',
+        type
       });
     }
-    
     return lineDiffs;
   };
-
   const lineDiffs = computeLineDiffs();
 
-  // 渲染左側（原始）面板
-  const renderLeftPane = () => {
-    return originalLines.map((line, index) => {
-      // 找到當前行的差異類型
-      const diff = lineDiffs.find(d => d.leftLine === index);
-      const diffClass = diff ? diff.type : 'equal';
-      
+  // 左側內容
+  const renderLeftPane = () =>
+    originalLines.map((line, idx) => {
+      const diff = lineDiffs.find(d => d.leftLine === idx);
+      const cls  = diff ? diff.type : 'equal';
       return (
-        <div 
-          key={`left-${index}`} 
-          id={`line-left-${index}`} 
-          className={`diff-line ${diffClass}`}
-          onClick={() => onDiffClick && diff && diff.type !== 'equal' && onDiffClick(diff)}
+        <div
+          key={`L${idx}`}
+          className={`diff-line ${cls}`}
+          onClick={() => diff && diff.type !== 'equal' && onDiffClick && onDiffClick(diff)}
         >
-          <span className="line-number">{index + 1}</span>
+          <span className="line-number">{idx + 1}</span>
           <span className="line-content">{line}</span>
         </div>
       );
     });
-  };
 
-  // 渲染右側（修改後）面板
-  const renderRightPane = () => {
-    return modifiedLines.map((line, index) => {
-      // 找到當前行的差異類型
-      const diff = lineDiffs.find(d => d.rightLine === index);
-      const diffClass = diff ? diff.type : 'equal';
-      
+  // 右側內容
+  const renderRightPane = () =>
+    modifiedLines.map((line, idx) => {
+      const diff = lineDiffs.find(d => d.rightLine === idx);
+      const cls  = diff ? diff.type : 'equal';
       return (
-        <div 
-          key={`right-${index}`} 
-          id={`line-right-${index}`} 
-          className={`diff-line ${diffClass}`}
-          onClick={() => onDiffClick && diff && diff.type !== 'equal' && onDiffClick(diff)}
+        <div
+          key={`R${idx}`}
+          className={`diff-line ${cls}`}
+          onClick={() => diff && diff.type !== 'equal' && onDiffClick && onDiffClick(diff)}
         >
-          <span className="line-number">{index + 1}</span>
+          <span className="line-number">{idx + 1}</span>
           <span className="line-content">{line}</span>
         </div>
       );
     });
-  };
 
   return (
-    <div className="side-by-side-diff">
-      <div 
-        className="diff-viewer-pane left" 
-        ref={leftRef} 
-        onScroll={handleScroll('left')}
+    <div className="side-by-side-diff" style={{ display: 'flex' }}>
+      {/* 左側：隱藏本身捲軸 */}
+      <div
+        className="diff-viewer-pane left"
+        ref={leftRef}
+        style={{ overflow: 'hidden', flex: 1 }}
       >
         <div className="pane-header">原始文件</div>
-        <div className="pane-content">
-          {renderLeftPane()}
+        <div className="pane-content" style={{ overflow: 'hidden', position: 'relative' }}>
+          <div ref={leftContentRef} style={{ position: 'absolute', width: '100%' }}>
+            {renderLeftPane()}
+          </div>
         </div>
       </div>
-      <div 
-        className="diff-viewer-pane right" 
-        ref={rightRef} 
-        onScroll={handleScroll('right')}
+
+      {/* 中央唯一捲軸 */}
+      <div
+        className="sync-scroll"
+        ref={syncRef}
+        onScroll={handleCentralScroll}
+        style={{ width: '16px', overflowY: 'scroll', marginTop: '30px' }}
+      />
+
+      {/* 右側：隱藏本身捲軸 */}
+      <div
+        className="diff-viewer-pane right"
+        ref={rightRef}
+        style={{ overflow: 'hidden', flex: 1 }}
       >
         <div className="pane-header">修改後文件</div>
-        <div className="pane-content">
-          {renderRightPane()}
+        <div className="pane-content" style={{ overflow: 'hidden', position: 'relative' }}>
+          <div ref={rightContentRef} style={{ position: 'absolute', width: '100%' }}>
+            {renderRightPane()}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default SideBySideDiffViewer; 
+export default SideBySideDiffViewer;

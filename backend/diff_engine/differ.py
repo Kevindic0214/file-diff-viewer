@@ -40,20 +40,3 @@ def compute_diff(text1: str, text2: str) -> list[dict]:
         })
     return result
 
-
-def diff_to_html(diffs: list[dict]) -> str:
-    """
-    Convert a list of diff dicts into simple HTML markup,
-    wrapping insertions in <ins> and deletions in <del>.
-    """
-    html_parts = []
-    for diff in diffs:
-        op = diff['operation']
-        text = diff['text']
-        if op == 'INSERT':
-            html_parts.append(f"<ins>{text}</ins>")
-        elif op == 'DELETE':
-            html_parts.append(f"<del>{text}</del>")
-        else:
-            html_parts.append(text)
-    return ''.join(html_parts)

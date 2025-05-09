@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 import SideBySideDiffViewer from './components/SideBySideDiffViewer';
@@ -12,26 +13,22 @@ function App() {
   const [lineDiffs, setLineDiffs] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedDiff, setSelectedDiff] = useState(null);
 
-  const viewerRef = useRef();
+  const viewerRef = useRef(null);
 
   // 計算行級別的差異
   useEffect(() => {
     if (originalText && modifiedText && diffs.length > 0) {
       const originalLines = originalText.split('\n');
       const modifiedLines = modifiedText.split('\n');
-      
-      // 標記每行的差異類型
       const computedLineDiffs = [];
-      
+
       for (let i = 0; i < Math.max(originalLines.length, modifiedLines.length); i++) {
-        // 檢查原始行在修改後是否存在
         const origLineExists = i < originalLines.length;
         const modLineExists = i < modifiedLines.length;
-        
-        // 判斷差異類型
         let diffType = 'equal';
-        
+
         if (origLineExists && modLineExists) {
           if (originalLines[i] !== modifiedLines[i]) {
             diffType = 'replaced';
@@ -41,8 +38,7 @@ function App() {
         } else if (modLineExists) {
           diffType = 'inserted';
         }
-        
-        // 只添加有差異的行
+
         if (diffType !== 'equal') {
           computedLineDiffs.push({
             leftLine: i,
@@ -53,7 +49,7 @@ function App() {
           });
         }
       }
-      
+
       setLineDiffs(computedLineDiffs);
     }
   }, [originalText, modifiedText, diffs]);
@@ -67,7 +63,6 @@ function App() {
     setError(''); 
     setLoading(true);
 
-    // 呼叫 API 進行差異比對
     const form = new FormData();
     form.append('file1', file1);
     form.append('file2', file2);
@@ -75,12 +70,13 @@ function App() {
     try {
       const res = await fetch('/api/diff', { method: 'POST', body: form });
       const data = await res.json();
-      
+
       if (!res.ok) throw new Error(data.error || '伺服器錯誤');
-      
+
       setOriginalText(data.originalText);
       setModifiedText(data.modifiedText);
       setDiffs(data.diffs);
+      setSelectedDiff(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -88,30 +84,19 @@ function App() {
     }
   };
 
-  // 點擊差異項目時的處理函數
+  // 處理差異點擊，利用子元件的 scrollToDiff 並記錄 selectedDiff
   const handleDiffClick = (diff) => {
-    // 取得對應行元素
-    const lineElement = document.getElementById(`line-left-${diff.leftLine}`);
-    if (lineElement) {
-      // 平滑滾動到對應行
-      lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      
-      // 添加一個短暫的高亮效果
-      lineElement.classList.add('highlight-focus');
-      setTimeout(() => {
-        lineElement.classList.remove('highlight-focus');
-      }, 1500);
+    setSelectedDiff(diff);
+    if (viewerRef.current?.scrollToDiff) {
+      viewerRef.current.scrollToDiff(diff);
     }
   };
 
-  // 檔案名稱顯示格式化
   const formatFileName = (file) => {
     if (!file) return '';
-    
-    if (file.name.length > 25) {
-      return file.name.substring(0, 22) + '...';
-    }
-    return file.name;
+    return file.name.length > 25
+      ? file.name.substring(0, 22) + '...'
+      : file.name;
   };
 
   return (
@@ -171,11 +156,11 @@ function App() {
       {originalText && modifiedText && (
         <div className="diff-container">
           <SideBySideDiffViewer
+            ref={viewerRef}
             originalText={originalText}
             modifiedText={modifiedText}
-            diffs={diffs}
             onDiffClick={handleDiffClick}
-            ref={viewerRef}
+            selectedDiff={selectedDiff}
           />
           <DiffDetails
             lineDiffs={lineDiffs}

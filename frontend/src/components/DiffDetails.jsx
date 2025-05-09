@@ -23,17 +23,49 @@ const DiffDetails = ({ lineDiffs, onDiffClick }) => {
     }
   };
 
+  // 比較兩個字串，找出不同的部分
+  const findDifference = (oldText, newText) => {
+    if (!oldText || !newText) return { old: oldText || '', new: newText || '' };
+    
+    // 找到共同前綴的結束位置
+    let prefixEnd = 0;
+    while (prefixEnd < oldText.length && prefixEnd < newText.length && 
+           oldText[prefixEnd] === newText[prefixEnd]) {
+      prefixEnd++;
+    }
+    
+    // 找到共同後綴的開始位置
+    let oldSuffixStart = oldText.length;
+    let newSuffixStart = newText.length;
+    
+    while (oldSuffixStart > prefixEnd && newSuffixStart > prefixEnd &&
+           oldText[oldSuffixStart - 1] === newText[newSuffixStart - 1]) {
+      oldSuffixStart--;
+      newSuffixStart--;
+    }
+    
+    // 提取差異部分
+    const oldDiff = oldText.substring(prefixEnd, oldSuffixStart);
+    const newDiff = newText.substring(prefixEnd, newSuffixStart);
+    
+    return {
+      old: oldDiff || '<無變更>',
+      new: newDiff || '<無變更>'
+    };
+  };
+
   // 獲取差異項目的顯示內容
   const getDiffContent = (diff) => {
     if (diff.type === 'replaced') {
+      const difference = findDifference(diff.leftText, diff.rightText);
       return (
         <>
           <div className="diff-content old">
-            {diff.leftText || '<空白>'}
+            <span className="highlight">{difference.old}</span>
           </div>
           <div className="diff-arrow">→</div>
           <div className="diff-content new">
-            {diff.rightText || '<空白>'}
+            <span className="highlight">{difference.new}</span>
           </div>
         </>
       );
@@ -42,7 +74,7 @@ const DiffDetails = ({ lineDiffs, onDiffClick }) => {
     if (diff.type === 'deleted') {
       return (
         <div className="diff-content old">
-          {diff.leftText || '<空白>'}
+          <span className="highlight">{diff.leftText || '<空白>'}</span>
         </div>
       );
     }
@@ -50,7 +82,7 @@ const DiffDetails = ({ lineDiffs, onDiffClick }) => {
     if (diff.type === 'inserted') {
       return (
         <div className="diff-content new">
-          {diff.rightText || '<空白>'}
+          <span className="highlight">{diff.rightText || '<空白>'}</span>
         </div>
       );
     }

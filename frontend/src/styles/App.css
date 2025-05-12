@@ -1,0 +1,192 @@
+/* 全局樣式和變量 */
+:root {
+  --primary-color: #2c7be5;
+  --secondary-color: #6c757d;
+  --success-color: #00d97e;
+  --info-color: #39afd1;
+  --warning-color: #f6c343;
+  --danger-color: #e63757;
+  --light-color: #f9fbfd;
+  --dark-color: #12263f;
+  
+  --insert-color: #e6f7ff;
+  --insert-border: #91d5ff;
+  --delete-color: #fff1f0;
+  --delete-border: #ffa39e;
+  --unchanged-color: #f9f9f9;
+  
+  --border-color: #e3ebf6;
+  --border-radius: 4px;
+  --box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.03);
+  
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --header-height: 60px;
+  --toolbar-height: 50px;
+  --footer-height: 40px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dark-color);
+  background-color: var(--light-color);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 應用容器 */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* 頭部 */
+.app-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background-color: white;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--box-shadow);
+  z-index: 10;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--dark-color);
+}
+
+/* 主內容區 */
+.app-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+/* 差異容器 */
+.diff-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height) - var(--footer-height) - 40px);
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 腳部 */
+.app-footer {
+  height: var(--footer-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  background-color: white;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--secondary-color);
+}
+
+/* 錯誤消息 */
+.error-message {
+  padding: 15px;
+  margin: 20px 0;
+  background-color: var(--delete-color);
+  border: 1px solid var(--delete-border);
+  border-radius: var(--border-radius);
+  color: var(--danger-color);
+}
+
+.error-message button {
+  padding: 5px 10px;
+  margin-top: 10px;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+}
+
+/* 加載指示器 */
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .diff-container {
+    height: auto;
+  }
+  
+  .app-content {
+    padding: 10px;
+  }
+}
+
+/* 打印樣式 */
+@media print {
+  .app-header,
+  .app-footer,
+  .toolbar,
+  .changes-panel {
+    display: none !important;
+  }
+  
+  .diff-container,
+  .main-content,
+  .diff-view-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  .app-content {
+    padding: 0 !important;
+  }
+}

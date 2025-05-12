@@ -1,0 +1,223 @@
+.diff-view-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    border-right: 1px solid var(--border-color);
+  }
+  
+  /* 文件統計信息 */
+  .file-statistics {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 10px 15px;
+    background-color: #f8fafc;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+  }
+  
+  .stat-item {
+    margin-right: 20px;
+    white-space: nowrap;
+  }
+  
+  .stat-label {
+    color: var(--secondary-color);
+    margin-right: 5px;
+  }
+  
+  .stat-value {
+    font-weight: 500;
+  }
+  
+  .stat-insertions {
+    color: #52c41a;
+  }
+  
+  .stat-deletions {
+    color: #f5222d;
+  }
+  
+  /* 差異視圖內容 */
+  .diff-view-content {
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  /* 統一視圖 */
+  .unified-view {
+    height: 100%;
+    overflow: auto;
+  }
+  
+  .unified-view .diff-pane {
+    padding: 10px 15px;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  
+  /* 並排視圖 */
+  .side-by-side-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  .file-headers {
+    display: flex;
+    height: 40px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .file-header {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    background-color: #f8fafc;
+    font-weight: 500;
+  }
+  
+  .file-header.left {
+    border-right: 1px solid var(--border-color);
+  }
+  
+  .file-version {
+    margin-left: 5px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background-color: var(--secondary-color);
+    color: white;
+    font-size: 11px;
+    font-weight: 400;
+  }
+  
+  .diff-panes-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  .diff-pane {
+    flex: 1;
+    overflow: auto;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    padding: 10px 15px;
+  }
+  
+  .diff-pane.left {
+    border-right: 1px solid var(--border-color);
+  }
+  
+  /* 變更指示器 */
+  .change-indicators {
+    width: 10px;
+    overflow: visible;
+    background-color: #f1f1f1;
+    position: relative;
+  }
+  
+  .change-indicator {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .delete-indicator {
+    background-color: #f5222d;
+  }
+  
+  .insert-indicator {
+    background-color: #52c41a;
+  }
+  
+  /* 差異段落樣式 */
+  .diff-segment {
+    padding: 2px 5px;
+    margin: 2px 0;
+    border-radius: 3px;
+  }
+  
+  .diff-segment.deleted {
+    background-color: var(--delete-color);
+    border-left: 3px solid var(--delete-border);
+    text-decoration: line-through;
+    color: #cf1322;
+  }
+  
+  .diff-segment.inserted {
+    background-color: var(--insert-color);
+    border-left: 3px solid var(--insert-border);
+    color: #096dd9;
+  }
+  
+  .diff-segment.unchanged {
+    /* 無特殊樣式 */
+  }
+  
+  .diff-segment.selected {
+    border: 2px solid #ffc53d;
+    box-shadow: 0 0 5px rgba(255, 197, 61, 0.5);
+  }
+  
+  .diff-segment.placeholder {
+    min-height: 24px;
+    background-color: transparent;
+  }
+  
+  /* 差異圖例 */
+  .diff-legend {
+    display: flex;
+    padding: 10px 15px;
+    border-top: 1px solid var(--border-color);
+    background-color: #f8fafc;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    margin-right: 20px;
+    font-size: 12px;
+  }
+  
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    border-radius: 2px;
+  }
+  
+  .delete-color {
+    background-color: var(--delete-color);
+    border: 1px solid var(--delete-border);
+  }
+  
+  .insert-color {
+    background-color: var(--insert-color);
+    border: 1px solid var(--insert-border);
+  }
+  
+  .unchanged-color {
+    background-color: var(--unchanged-color);
+    border: 1px solid var(--border-color);
+  }
+  
+  .legend-label {
+    color: var(--secondary-color);
+  }
+  
+  /* 響應式設計 */
+  @media (max-width: 768px) {
+    .side-by-side-view {
+      display: none;
+    }
+    
+    .unified-view {
+      display: block;
+    }
+  }

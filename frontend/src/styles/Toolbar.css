@@ -1,0 +1,99 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  height: var(--toolbar-height);
+  padding: 0 15px;
+  background-color: white;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+  height: 100%;
+}
+
+.toolbar-group:not(:last-child)::after {
+  content: "";
+  height: 60%;
+  width: 1px;
+  background-color: var(--border-color);
+  margin-left: 20px;
+}
+
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
+  margin: 0 2px;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--border-radius);
+  color: var(--secondary-color);
+  transition: all 0.3s ease;
+}
+
+.toolbar-button:hover {
+  background-color: #f1f4f8;
+  color: var(--dark-color);
+}
+
+.toolbar-button.active {
+  background-color: #e6f7ff;
+  color: var(--primary-color);
+}
+
+.toolbar-icon {
+  margin-right: 5px;
+  font-size: 16px;
+}
+
+.toolbar-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.nav-button .toolbar-icon {
+  font-size: 18px;
+}
+
+.reset-button {
+  color: var(--danger-color);
+}
+
+.reset-button:hover {
+  background-color: #fff1f0;
+  color: var(--danger-color);
+}
+
+/* 響應式設計 - 在小屏幕上只顯示圖標 */
+@media (max-width: 768px) {
+  .toolbar {
+    overflow-x: auto;
+    justify-content: space-between;
+    padding: 0 10px;
+  }
+  
+  .toolbar-group {
+    margin-right: 10px;
+  }
+  
+  .toolbar-group:not(:last-child)::after {
+    margin-left: 10px;
+  }
+  
+  .toolbar-label {
+    display: none;
+  }
+  
+  .toolbar-button {
+    padding: 0 8px;
+  }
+  
+  .toolbar-icon {
+    margin-right: 0;
+  }
+}

@@ -1,173 +1,255 @@
-// src/App.js
-import React, { useState, useRef, useEffect } from 'react';
-import './App.css';
-import SideBySideDiffViewer from './components/SideBySideDiffViewer';
-import DiffDetails from './components/DiffDetails';
+import React, { useState, useEffect } from 'react';
+import FileUploader from './components/FileUploader';
+import DiffView from './components/DiffView';
+import Toolbar from './components/Toolbar';
+import ChangesPanel from './components/ChangesPanel';
+import './styles/App.css';
 
 function App() {
-  const [file1, setFile1] = useState(null);
-  const [file2, setFile2] = useState(null);
-  const [originalText, setOriginalText] = useState('');
-  const [modifiedText, setModifiedText] = useState('');
-  const [diffs, setDiffs] = useState([]);
-  const [lineDiffs, setLineDiffs] = useState([]);
-  const [error, setError] = useState('');
+  // 主要應用狀態
   const [loading, setLoading] = useState(false);
-  const [selectedDiff, setSelectedDiff] = useState(null);
+  const [error, setError] = useState(null);
+  const [diffData, setDiffData] = useState(null);
+  const [viewMode, setViewMode] = useState('side-by-side'); // 'side-by-side' 或 'unified'
+  const [selectedChangeIndex, setSelectedChangeIndex] = useState(null);
+  const [filters, setFilters] = useState({
+    inserted: true,
+    deleted: true,
+    replaced: true
+  });
 
-  const viewerRef = useRef(null);
-
-  // 計算行級別的差異
-  useEffect(() => {
-    if (originalText && modifiedText && diffs.length > 0) {
-      const originalLines = originalText.split('\n');
-      const modifiedLines = modifiedText.split('\n');
-      const computedLineDiffs = [];
-
-      for (let i = 0; i < Math.max(originalLines.length, modifiedLines.length); i++) {
-        const origLineExists = i < originalLines.length;
-        const modLineExists = i < modifiedLines.length;
-        let diffType = 'equal';
-
-        if (origLineExists && modLineExists) {
-          if (originalLines[i] !== modifiedLines[i]) {
-            diffType = 'replaced';
-          }
-        } else if (origLineExists) {
-          diffType = 'deleted';
-        } else if (modLineExists) {
-          diffType = 'inserted';
-        }
-
-        if (diffType !== 'equal') {
-          computedLineDiffs.push({
-            leftLine: i,
-            rightLine: i,
-            leftText: origLineExists ? originalLines[i] : '',
-            rightText: modLineExists ? modifiedLines[i] : '',
-            type: diffType
-          });
-        }
-      }
-
-      setLineDiffs(computedLineDiffs);
-    }
-  }, [originalText, modifiedText, diffs]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!file1 || !file2) {
-      setError('請選擇兩個檔案');
-      return;
-    }
-    setError(''); 
+  // 處理文件上傳和差異比較
+  const handleCompareFiles = async (file1, file2) => {
     setLoading(true);
-
-    const form = new FormData();
-    form.append('file1', file1);
-    form.append('file2', file2);
-
+    setError(null);
+    
     try {
-      const res = await fetch('/api/diff', { method: 'POST', body: form });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || '伺服器錯誤');
-
-      setOriginalText(data.originalText);
-      setModifiedText(data.modifiedText);
-      setDiffs(data.diffs);
-      setSelectedDiff(null);
+      const formData = new FormData();
+      formData.append('file1', file1);
+      formData.append('file2', file2);
+      
+      const response = await fetch('http://localhost:5000/api/diff', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '檔案比較時發生錯誤');
+      }
+      
+      const data = await response.json();
+      processRawDiffData(data);
     } catch (err) {
+      console.error('Error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 處理差異點擊，利用子元件的 scrollToDiff 並記錄 selectedDiff
-  const handleDiffClick = (diff) => {
-    setSelectedDiff(diff);
-    if (viewerRef.current?.scrollToDiff) {
-      viewerRef.current.scrollToDiff(diff);
+  // 處理和轉換原始差異數據
+  const processRawDiffData = (rawData) => {
+    // 處理差異數據，創建更易於使用的格式
+    // 包括計算變更類型、分組相關變更等
+    
+    // 假設我們的後端返回 { diffs: [...], originalText: "...", modifiedText: "..." }
+    // 我們可以增強這個數據結構並添加更多信息
+    
+    const { diffs, originalText, modifiedText } = rawData;
+    
+    // 為每個變更計算類型和統計信息
+    const enhancedDiffs = diffs.map((diff, index) => {
+      const { operation, text, lines } = diff;
+      
+      // 確定變更類型
+      let changeType;
+      if (operation === 'EQUAL') {
+        changeType = 'unchanged';
+      } else if (operation === 'INSERT') {
+        changeType = 'inserted';
+      } else if (operation === 'DELETE') {
+        changeType = 'deleted';
+      }
+      
+      // 對於相鄰的刪除和插入，我們可以將它們標記為替換
+      // 這需要更複雜的處理邏輯，這裡只是簡化示例
+      
+      return {
+        ...diff,
+        id: `change-${index}`,
+        changeType,
+        // 添加其他有用的元數據
+      };
+    });
+    
+    // 組織變更摘要（用於右側面板）
+    const changesSummary = [];
+    let currentReplaceGroup = null;
+    
+    // 這只是一個簡化的邏輯，實際應用中需要更複雜的算法來檢測替換組
+    enhancedDiffs.forEach((diff, index) => {
+      if (diff.changeType === 'deleted' && 
+          index < enhancedDiffs.length - 1 && 
+          enhancedDiffs[index + 1].changeType === 'inserted') {
+        
+        // 開始一個替換組
+        if (!currentReplaceGroup) {
+          currentReplaceGroup = {
+            type: 'REPLACED',
+            oldContent: diff.text,
+            newContent: enhancedDiffs[index + 1].text,
+            diffIndices: [index, index + 1],
+            charDiff: enhancedDiffs[index + 1].text.length - diff.text.length
+          };
+        } else {
+          currentReplaceGroup.oldContent += diff.text;
+          currentReplaceGroup.newContent += enhancedDiffs[index + 1].text;
+          currentReplaceGroup.diffIndices.push(index, index + 1);
+          currentReplaceGroup.charDiff += enhancedDiffs[index + 1].text.length - diff.text.length;
+        }
+      } else if (diff.changeType === 'inserted' && index > 0 && enhancedDiffs[index - 1].changeType === 'deleted') {
+        // 這是一個替換組的一部分，已經在前一個迭代中處理過
+        if (currentReplaceGroup && index === enhancedDiffs.length - 1) {
+          changesSummary.push(currentReplaceGroup);
+          currentReplaceGroup = null;
+        }
+      } else {
+        // 如果我們有一個活動的替換組，添加它
+        if (currentReplaceGroup) {
+          changesSummary.push(currentReplaceGroup);
+          currentReplaceGroup = null;
+        }
+        
+        // 添加單個變更
+        if (diff.changeType === 'deleted') {
+          changesSummary.push({
+            type: 'DELETED',
+            oldContent: diff.text,
+            newContent: '',
+            diffIndices: [index],
+            charDiff: -diff.text.length
+          });
+        } else if (diff.changeType === 'inserted') {
+          changesSummary.push({
+            type: 'INSERTED',
+            oldContent: '',
+            newContent: diff.text,
+            diffIndices: [index],
+            charDiff: diff.text.length
+          });
+        }
+        // 'unchanged' 不添加到摘要中
+      }
+    });
+    
+    // 最後檢查是否有未處理的替換組
+    if (currentReplaceGroup) {
+      changesSummary.push(currentReplaceGroup);
+    }
+    
+    // 更新 state
+    setDiffData({
+      diffs: enhancedDiffs,
+      originalText,
+      modifiedText,
+      changesSummary
+    });
+  };
+
+  // 處理變更選擇
+  const handleChangeSelect = (changeIndex) => {
+    setSelectedChangeIndex(changeIndex);
+    
+    // 滾動到對應的變更位置
+    const element = document.getElementById(`diff-${changeIndex}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
-  const formatFileName = (file) => {
-    if (!file) return '';
-    return file.name.length > 25
-      ? file.name.substring(0, 22) + '...'
-      : file.name;
+  // 處理過濾變更
+  const handleFilterChange = (filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+  };
+
+  // 處理視圖模式切換
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+  };
+
+  // 處理導航到下一個/上一個變更
+  const handleNavigateChanges = (direction) => {
+    if (!diffData || !diffData.changesSummary.length) return;
+    
+    const totalChanges = diffData.changesSummary.length;
+    
+    if (selectedChangeIndex === null) {
+      // 如果尚未選擇任何變更，選擇第一個或最後一個
+      setSelectedChangeIndex(direction === 'next' ? 0 : totalChanges - 1);
+    } else {
+      // 計算下一個或上一個索引
+      const newIndex = direction === 'next'
+        ? (selectedChangeIndex + 1) % totalChanges
+        : (selectedChangeIndex - 1 + totalChanges) % totalChanges;
+      
+      setSelectedChangeIndex(newIndex);
+      
+      // 滾動到選定的變更
+      const element = document.getElementById(`change-summary-${newIndex}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
   };
 
   return (
-    <div className="App">
+    <div className="app">
       <header className="app-header">
-        <h1>文件差異比對</h1>
-        <form onSubmit={handleSubmit} className="upload-form">
-          <div className="form-group">
-            <label>原始檔案：</label>
-            <div className="file-input-group">
-              <input
-                type="file"
-                accept=".txt,.docx,.pdf"
-                id="file1"
-                onChange={e => setFile1(e.target.files[0])}
-                className="file-input"
-              />
-              <label htmlFor="file1" className="file-label">
-                {file1 ? formatFileName(file1) : '選擇檔案...'}
-              </label>
-            </div>
-          </div>
-          <div className="form-group">
-            <label>修改後檔案：</label>
-            <div className="file-input-group">
-              <input
-                type="file"
-                accept=".txt,.docx,.pdf"
-                id="file2"
-                onChange={e => setFile2(e.target.files[0])}
-                className="file-input"
-              />
-              <label htmlFor="file2" className="file-label">
-                {file2 ? formatFileName(file2) : '選擇檔案...'}
-              </label>
-            </div>
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className="submit-button"
-          >
-            {loading ? '處理中...' : '開始比對'}
-          </button>
-        </form>
+        <h1>文件差異比較系統</h1>
       </header>
-
-      {error && <div className="error-message">{error}</div>}
-
-      {loading && (
-        <div className="loading-container">
-          <div className="loader"></div>
-          <p>正在處理文件，請稍候...</p>
-        </div>
-      )}
-
-      {originalText && modifiedText && (
+      
+      {!diffData ? (
+        <FileUploader 
+          onCompare={handleCompareFiles} 
+          loading={loading}
+          error={error}
+        />
+      ) : (
         <div className="diff-container">
-          <SideBySideDiffViewer
-            ref={viewerRef}
-            originalText={originalText}
-            modifiedText={modifiedText}
-            onDiffClick={handleDiffClick}
-            selectedDiff={selectedDiff}
+          <Toolbar 
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            onNavigatePrev={() => handleNavigateChanges('prev')}
+            onNavigateNext={() => handleNavigateChanges('next')}
+            onReset={() => setDiffData(null)}
           />
-          <DiffDetails
-            lineDiffs={lineDiffs}
-            onDiffClick={handleDiffClick}
-          />
+          
+          <div className="main-content">
+            <DiffView 
+              diffData={diffData}
+              viewMode={viewMode}
+              selectedChangeIndex={selectedChangeIndex}
+              filters={filters}
+            />
+            
+            <ChangesPanel 
+              changes={diffData.changesSummary}
+              selectedIndex={selectedChangeIndex}
+              onChangeSelect={handleChangeSelect}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          </div>
         </div>
       )}
+      
+      <footer className="app-footer">
+        <p>© 2025 文件差異比較系統 By Kevin H. Hsieh</p>
+      </footer>
     </div>
   );
 }

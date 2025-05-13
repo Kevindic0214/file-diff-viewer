@@ -1,93 +1,97 @@
-# 檔案差異比對工具 (File Diff Viewer)
+# File Diff Viewer
 
-一個強大的檔案比對工具，可視化展示文件差異並提供 AI 輔助分析功能。特別適用於合約、法律文件和其他需要精確比對的文本檔案。
+A powerful file comparison tool that visually displays document differences. Particularly suitable for contracts, legal documents, and other text files requiring precise comparison.
 
-## 主要功能
+## Key Features
 
-- **檔案差異比對**：上傳兩個檔案，自動分析並高亮顯示其間的差異
-- **支援多種檔案格式**：包括 PDF、Word 文件、文本檔案等
-- **AI 輔助分析**：對差異部分提供法律/合約專業意見和建議
-- **報告導出**：支援將差異報告匯出為 PDF 格式
+- **File Difference Comparison**: Upload two files, automatically analyze and highlight differences between them
+- **Visual Difference Highlighting**: Display additions, deletions, and modifications with distinct colors
+- **Report Export**: Export difference reports as PDF format
 
-## 技術架構
+## Planned Features (TODO)
 
-### 前端 (React)
-- 基於 React 開發的現代化 UI
-- 支援檔案上傳、差異視覺化和 AI 分析結果顯示
-- 透過 HTML2Canvas 和 jsPDF 實現報告匯出功能
+- **Support for Multiple File Formats**: Add support for PDF and Word documents
+- **AI-Assisted Analysis**: Implement AI analysis to provide professional legal/contract opinions and suggestions for difference sections
+- **Enhanced UI Features**: Add more visualization options and user interface improvements
 
-### 後端 (Python Flask)
-- Flask API 提供檔案處理和差異計算功能
-- 整合 OpenAI API 提供智能差異分析
-- 模組化的差異引擎設計
+## Technical Architecture
 
-## 安裝指南
+### Frontend (React)
+- Modern UI developed with React
+- Support for file uploads and difference visualization
+- Report export via HTML2Canvas and jsPDF
 
-### 前置需求
+### Backend (Python Flask)
+- Flask API provides file processing and difference calculation
+- Modular difference engine design
+- OpenAI API integration (planned)
+
+## Installation Guide
+
+### Prerequisites
 - Node.js (16+)
 - Python (3.9+)
-- OpenAI API 金鑰 (用於 AI 分析功能)
+- OpenAI API key (for planned AI analysis feature)
 
-### 後端設定
-1. 進入後端目錄：
+### Backend Setup
+1. Navigate to the backend directory:
    ```
    cd backend
    ```
 
-2. 創建並啟用虛擬環境：
+2. Create and activate a virtual environment:
    ```
    python -m venv venv
-   source venv/bin/activate  # 在 Windows 上使用: venv\Scripts\activate
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. 安裝相依套件：
+3. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
 
-4. 創建 .env 檔案並設置 OpenAI API 金鑰：
+4. Create a .env file and set your OpenAI API key (for future use):
    ```
    OPENAI_API_KEY=your_api_key_here
    ```
 
-5. 啟動後端伺服器：
+5. Start the backend server:
    ```
    python app.py
    ```
 
-### 前端設定
-1. 進入前端目錄：
+### Frontend Setup
+1. Navigate to the frontend directory:
    ```
    cd frontend
    ```
 
-2. 安裝相依套件：
+2. Install dependencies:
    ```
    npm install
    ```
 
-3. 啟動開發伺服器：
+3. Start the development server:
    ```
    npm start
    ```
 
-應用程式將在 http://localhost:3000 上執行，後端 API 在 http://localhost:5000 提供服務。
+The application will run at http://localhost:3000, with the backend API serving at http://localhost:5000.
 
-## 使用說明
+## Usage Instructions
 
-1. 在首頁上傳兩個要比對的檔案（原始檔案和修改後檔案）
-2. 系統將自動處理並顯示檔案差異，用不同顏色標示增加、刪除和修改部分
-3. 點擊特定差異區塊，可獲取 AI 輔助分析和建議
-4. 使用頁面上的匯出功能，將完整差異報告保存為 PDF 檔案
+1. On the homepage, upload two files to compare (original file and modified file)
+2. The system will automatically process and display file differences, marking additions, deletions and modifications with different colors
+3. Use the export feature on the page to save the complete difference report as a PDF file
 
-## 貢獻指南
+## Contribution Guidelines
 
-歡迎提交 Pull Request 或建立 Issue 來改進本專案。在提交代碼前，請確保：
+Contributions via Pull Requests or Issues are welcome. Before submitting code, please ensure:
 
-1. 遵循現有的代碼風格和命名慣例
-2. 添加適當的測試用例
-3. 更新相關文檔
+1. You follow existing code style and naming conventions
+2. You add appropriate test cases
+3. You update relevant documentation
 
-## 授權協議
+## License
 
-本專案採用 MIT 授權協議 - 詳見 [LICENSE](LICENSE) 檔案。
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

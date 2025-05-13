@@ -86,7 +86,7 @@ function FileUploader({ onCompare, loading, error }) {
       <div className="upload-container">
         {/* 原始文件（左側） */}
         <div className="upload-box">
-          <h3>原始文件 (版本 A)</h3>
+          <h3>原始文件</h3>
           <div 
             className={`drop-zone ${dragActive1 ? 'active' : ''} ${file1 ? 'has-file' : ''}`}
             onDragEnter={(e) => handleDrag(e, 1)}
@@ -120,7 +120,7 @@ function FileUploader({ onCompare, loading, error }) {
         
         {/* 修改後文件（右側） */}
         <div className="upload-box">
-          <h3>修改後文件 (版本 B)</h3>
+          <h3>修改後文件</h3>
           <div 
             className={`drop-zone ${dragActive2 ? 'active' : ''} ${file2 ? 'has-file' : ''}`}
             onDragEnter={(e) => handleDrag(e, 2)}

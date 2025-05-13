@@ -5,9 +5,15 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
   const [visibleDiffs, setVisibleDiffs] = useState([]);
   const leftPaneRef = useRef(null);
   const rightPaneRef = useRef(null);
+  const [manualScrolling, setManualScrolling] = useState(false);
   
-  // 處理滾動同步
+  // 處理滾動同步 - 當視圖模式改變時也需要重新設置
   useEffect(() => {
+    // 如果不是並排視圖或沒有數據，則不需要設置滾動同步
+    if (viewMode !== 'side-by-side' || !diffData) {
+      return;
+    }
+    
     const handleLeftScroll = () => {
       if (rightPaneRef.current && leftPaneRef.current) {
         rightPaneRef.current.scrollTop = leftPaneRef.current.scrollTop;
@@ -40,11 +46,11 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
         rightPane.removeEventListener('scroll', handleRightScroll);
       }
     };
-  }, [diffData]);
+  }, [diffData, viewMode]); // 添加 viewMode 作為依賴項
   
   // 當選定的變更索引變化時，根據需要滾動到視圖
   useEffect(() => {
-    if (selectedChangeIndex !== null) {
+    if (selectedChangeIndex !== null && !manualScrolling && diffData) {
       // 找出選定變更對應的差異區塊
       const selectedDiff = diffData.diffs.find(
         diff => diff.id === `change-${selectedChangeIndex}`
@@ -57,7 +63,19 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
         }
       }
     }
-  }, [selectedChangeIndex, diffData]);
+  }, [selectedChangeIndex, diffData, manualScrolling]);
+  
+  // 處理手動滾動
+  const handleManualScroll = () => {
+    setManualScrolling(true);
+    
+    // 設置一個計時器，在用戶停止滾動一段時間後重設手動滾動狀態
+    const timer = setTimeout(() => {
+      setManualScrolling(false);
+    }, 2000); // 2秒後重設
+    
+    return () => clearTimeout(timer);
+  };
   
   // 當過濾條件或差異數據變化時，過濾顯示的差異
   useEffect(() => {
@@ -77,13 +95,26 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
     setVisibleDiffs(filtered);
   }, [diffData, filters]);
   
+  // 視圖切換後的滾動同步
+  useEffect(() => {
+    // 確保兩個面板初始滾動位置同步
+    if (viewMode === 'side-by-side' && leftPaneRef.current && rightPaneRef.current) {
+      // 使用 requestAnimationFrame 確保在 DOM 更新後執行
+      requestAnimationFrame(() => {
+        // 重置滾動位置到頂部或保持目前位置同步
+        const currentScroll = leftPaneRef.current.scrollTop || 0;
+        rightPaneRef.current.scrollTop = currentScroll;
+      });
+    }
+  }, [viewMode]);
+  
   if (!diffData) return <div className="loading">正在載入差異數據...</div>;
   
   // 在統一視圖中渲染差異
   const renderUnifiedView = () => {
     return (
       <div className="unified-view">
-        <div className="diff-pane">
+        <div className="diff-pane" onScroll={handleManualScroll}>
           {visibleDiffs.map((diff, index) => {
             const { id, text, changeType } = diff;
             
@@ -188,7 +219,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
         </div>
         
         <div className="diff-panes-container">
-          <div className="diff-pane left" ref={leftPaneRef}>
+          <div className="diff-pane left" ref={leftPaneRef} onScroll={handleManualScroll}>
             {leftContent}
           </div>
           
@@ -204,6 +235,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
                   key={`indicator-${diff.id}`}
                   className={`change-indicator ${indicatorClass}`}
                   onClick={() => {
+                    setManualScrolling(false);
                     const element = document.getElementById(diff.id);
                     if (element) {
                       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -214,7 +246,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
             })}
           </div>
           
-          <div className="diff-pane right" ref={rightPaneRef}>
+          <div className="diff-pane right" ref={rightPaneRef} onScroll={handleManualScroll}>
             {rightContent}
           </div>
         </div>

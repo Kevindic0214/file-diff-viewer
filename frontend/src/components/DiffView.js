@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import '../styles/DiffView.css';
 
-function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
+function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSelect }) {
   const [visibleDiffs, setVisibleDiffs] = useState([]);
   const leftPaneRef = useRef(null);
   const rightPaneRef = useRef(null);
@@ -15,13 +15,13 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
     }
     
     const handleLeftScroll = () => {
-      if (rightPaneRef.current && leftPaneRef.current) {
+      if (manualScrolling && rightPaneRef.current && leftPaneRef.current) {
         rightPaneRef.current.scrollTop = leftPaneRef.current.scrollTop;
       }
     };
     
     const handleRightScroll = () => {
-      if (leftPaneRef.current && rightPaneRef.current) {
+      if (manualScrolling && leftPaneRef.current && rightPaneRef.current) {
         leftPaneRef.current.scrollTop = rightPaneRef.current.scrollTop;
       }
     };
@@ -46,24 +46,37 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
         rightPane.removeEventListener('scroll', handleRightScroll);
       }
     };
-  }, [diffData, viewMode]); // 添加 viewMode 作為依賴項
+  }, [diffData, viewMode, manualScrolling]); // 添加 manualScrolling 作為依賴項
   
   // 當選定的變更索引變化時，根據需要滾動到視圖
   useEffect(() => {
     if (selectedChangeIndex !== null && !manualScrolling && diffData) {
-      // 找出選定變更對應的差異區塊
-      const selectedDiff = diffData.diffs.find(
-        diff => diff.id === `change-${selectedChangeIndex}`
-      );
-      
-      if (selectedDiff) {
-        const element = document.getElementById(selectedDiff.id);
+      const change = diffData.changesSummary[selectedChangeIndex];
+      if (change && change.diffIndices && change.diffIndices.length > 0) {
+        const diffIndex = change.diffIndices[0];
+        
+        // 根據當前視圖模式選擇正確的元素ID格式
+        let elementId;
+        if (viewMode === 'unified') {
+          elementId = `diff-unified-${diffIndex}`;
+        } else {
+          // 在並排視圖中，根據變更類型決定查找左側還是右側元素
+          if (change.type === 'DELETED' || 
+              (change.type === 'REPLACED' && diffData.diffs[diffIndex].changeType === 'deleted')) {
+            elementId = `diff-side-left-${diffIndex}`;
+          } else {
+            const insertIndex = change.type === 'REPLACED' ? change.diffIndices[1] : diffIndex;
+            elementId = `diff-side-right-${insertIndex}`;
+          }
+        }
+        
+        const element = document.getElementById(elementId);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
     }
-  }, [selectedChangeIndex, diffData, manualScrolling]);
+  }, [selectedChangeIndex, diffData, manualScrolling, viewMode]); // 添加 viewMode 作為依賴項
   
   // 處理手動滾動
   const handleManualScroll = () => {
@@ -74,6 +87,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
       setManualScrolling(false);
     }, 2000); // 2秒後重設
     
+    // 返回清除函數，確保在組件卸載或重新渲染時清除計時器
     return () => clearTimeout(timer);
   };
   
@@ -116,18 +130,18 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
       <div className="unified-view">
         <div className="diff-pane" onScroll={handleManualScroll}>
           {visibleDiffs.map((diff, index) => {
-            const { id, text, changeType } = diff;
+            // 確定是否是選定變更的一部分
+            const isSelected = selectedChangeIndex !== null && 
+                              diffData.changesSummary[selectedChangeIndex] &&
+                              diffData.changesSummary[selectedChangeIndex].diffIndices.includes(index);
             
             return (
               <div 
-                key={id} 
-                id={id}
-                className={`diff-segment ${changeType} ${
-                  selectedChangeIndex !== null && 
-                  id === `change-${selectedChangeIndex}` ? 'selected' : ''
-                }`}
+                key={`unified-${index}`} 
+                id={`diff-unified-${index}`}
+                className={`diff-segment ${diff.changeType} ${isSelected ? 'selected' : ''}`}
               >
-                {text}
+                {diff.text}
               </div>
             );
           })}
@@ -143,32 +157,41 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
     const rightContent = [];
     
     visibleDiffs.forEach((diff, index) => {
-      const { id, text, changeType } = diff;
+      // 確定是否是選定變更的一部分
       const isSelected = selectedChangeIndex !== null && 
-                         id === `change-${selectedChangeIndex}`;
+                        diffData.changesSummary[selectedChangeIndex] &&
+                        diffData.changesSummary[selectedChangeIndex].diffIndices.includes(index);
       
-      if (changeType === 'unchanged') {
+      if (diff.changeType === 'unchanged') {
         // 兩邊都添加相同內容
         leftContent.push(
-          <div key={`left-${id}`} id={`left-${id}`} className="diff-segment unchanged">
-            {text}
+          <div 
+            key={`left-unchanged-${index}`} 
+            id={`diff-side-left-unchanged-${index}`} 
+            className="diff-segment unchanged"
+          >
+            {diff.text}
           </div>
         );
         
         rightContent.push(
-          <div key={`right-${id}`} id={`right-${id}`} className="diff-segment unchanged">
-            {text}
+          <div 
+            key={`right-unchanged-${index}`} 
+            id={`diff-side-right-unchanged-${index}`} 
+            className="diff-segment unchanged"
+          >
+            {diff.text}
           </div>
         );
-      } else if (changeType === 'deleted') {
+      } else if (diff.changeType === 'deleted') {
         // 僅在左側添加，標記為刪除
         leftContent.push(
           <div 
-            key={`left-${id}`} 
-            id={id} 
+            key={`left-deleted-${index}`} 
+            id={`diff-side-left-${index}`} 
             className={`diff-segment deleted ${isSelected ? 'selected' : ''}`}
           >
-            {text}
+            {diff.text}
           </div>
         );
         
@@ -176,26 +199,26 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
         if (index < visibleDiffs.length - 1 && 
             visibleDiffs[index + 1].changeType !== 'inserted') {
           rightContent.push(
-            <div key={`right-${id}`} className="diff-segment placeholder"></div>
+            <div key={`right-placeholder-${index}`} className="diff-segment placeholder"></div>
           );
         }
-      } else if (changeType === 'inserted') {
+      } else if (diff.changeType === 'inserted') {
         // 僅在右側添加，標記為插入
         
         // 在左側可能需要添加一個空白區域，保持對齊
         if (index > 0 && visibleDiffs[index - 1].changeType !== 'deleted') {
           leftContent.push(
-            <div key={`left-${id}`} className="diff-segment placeholder"></div>
+            <div key={`left-placeholder-${index}`} className="diff-segment placeholder"></div>
           );
         }
         
         rightContent.push(
           <div 
-            key={`right-${id}`} 
-            id={id} 
+            key={`right-inserted-${index}`} 
+            id={`diff-side-right-${index}`} 
             className={`diff-segment inserted ${isSelected ? 'selected' : ''}`}
           >
-            {text}
+            {diff.text}
           </div>
         );
       }
@@ -232,13 +255,39 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters }) {
               
               return (
                 <div 
-                  key={`indicator-${diff.id}`}
+                  key={`indicator-${index}`}
                   className={`change-indicator ${indicatorClass}`}
                   onClick={() => {
+                    // 先禁用手動滾動狀態，以允許自動導航生效
                     setManualScrolling(false);
-                    const element = document.getElementById(diff.id);
+                    // 根據變更類型選擇正確的元素ID
+                    const elementId = diff.changeType === 'deleted' 
+                      ? `diff-side-left-${index}` 
+                      : `diff-side-right-${index}`;
+                    
+                    // 獲取元素並滾動到視圖中
+                    const element = document.getElementById(elementId);
                     if (element) {
                       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      
+                      // 找到對應的變更索引
+                      const changeIndex = diffData.changesSummary.findIndex(change => 
+                        change.diffIndices && change.diffIndices.includes(index)
+                      );
+                      
+                      // 如果找到對應的變更，則選中它
+                      if (changeIndex !== -1) {
+                        // 使用 setTimeout 確保滾動完成後再更新選擇的變更
+                        setTimeout(() => {
+                          // 通知父組件更新選中的變更索引
+                          // 這需要添加一個 onChangeSelect props
+                          if (typeof onChangeSelect === 'function') {
+                            onChangeSelect(changeIndex);
+                          }
+                        }, 100);
+                      }
+                    } else {
+                      console.warn(`導航錯誤：找不到元素 ${elementId}`);
                     }
                   }}
                 ></div>

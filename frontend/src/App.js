@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import FileUploader from './components/FileUploader';
 import DiffView from './components/DiffView';
 import Toolbar from './components/Toolbar';
@@ -53,14 +53,14 @@ function App() {
     // 處理差異數據，創建更易於使用的格式
     // 包括計算變更類型、分組相關變更等
     
-    // 假設我們的後端返回 { diffs: [...], originalText: "...", modifiedText: "..." }
+    // 後端返回 { diffs: [...], originalText: "...", modifiedText: "..." }
     // 我們可以增強這個數據結構並添加更多信息
     
     const { diffs, originalText, modifiedText } = rawData;
     
     // 為每個變更計算類型和統計信息
     const enhancedDiffs = diffs.map((diff, index) => {
-      const { operation, text, lines } = diff;
+      const { operation } = diff;
       
       // 確定變更類型
       let changeType;
@@ -77,7 +77,7 @@ function App() {
       
       return {
         ...diff,
-        id: `change-${index}`,
+        id: `diff-block-${index}`,
         changeType,
         // 添加其他有用的元數據
       };
@@ -157,15 +157,45 @@ function App() {
     });
   };
 
+  // 添加一個共用的導航函數
+  const navigateToChange = (changeIndex) => {
+    if (!diffData || !diffData.changesSummary || !diffData.changesSummary[changeIndex]) return;
+    
+    const change = diffData.changesSummary[changeIndex];
+    if (change.diffIndices && change.diffIndices.length > 0) {
+      const diffIndex = change.diffIndices[0];
+      
+      // 根據當前視圖模式選擇正確的元素ID格式
+      let elementId;
+      if (viewMode === 'unified') {
+        elementId = `diff-unified-${diffIndex}`;
+      } else {
+        // 在並排視圖中，根據變更類型決定查找左側還是右側元素
+        if (change.type === 'DELETED' || 
+            (change.type === 'REPLACED' && diffData.diffs[diffIndex].changeType === 'deleted')) {
+          elementId = `diff-side-left-${diffIndex}`;
+        } else {
+          const insertIndex = change.type === 'REPLACED' ? change.diffIndices[1] : diffIndex;
+          elementId = `diff-side-right-${insertIndex}`;
+        }
+      }
+      
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        console.warn(`導航錯誤：找不到元素 ${elementId}，變更索引：${changeIndex}`);
+        // 提供更多診斷信息
+        console.debug('變更詳情:', change);
+        console.debug('視圖模式:', viewMode);
+      }
+    }
+  };
+
   // 處理變更選擇
   const handleChangeSelect = (changeIndex) => {
     setSelectedChangeIndex(changeIndex);
-    
-    // 滾動到對應的變更位置
-    const element = document.getElementById(`diff-${changeIndex}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    navigateToChange(changeIndex);
   };
 
   // 處理過濾變更
@@ -234,6 +264,7 @@ function App() {
               viewMode={viewMode}
               selectedChangeIndex={selectedChangeIndex}
               filters={filters}
+              onChangeSelect={handleChangeSelect}
             />
             
             <ChangesPanel 

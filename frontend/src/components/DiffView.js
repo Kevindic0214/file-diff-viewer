@@ -5,52 +5,110 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
   const [visibleDiffs, setVisibleDiffs] = useState([]);
   const leftPaneRef = useRef(null);
   const rightPaneRef = useRef(null);
-  const [manualScrolling, setManualScrolling] = useState(false);
+  // 使用 useRef 來追蹤滾動同步狀態，避免觸發重新渲染
+  const isScrollingSynced = useRef(false);
+  const lastLeftScrollTop = useRef(0);
+  const lastRightScrollTop = useRef(0);
   
-  // 處理滾動同步 - 當視圖模式改變時也需要重新設置
-  useEffect(() => {
-    // 如果不是並排視圖或沒有數據，則不需要設置滾動同步
-    if (viewMode !== 'side-by-side' || !diffData) {
-      return;
+// 在 DiffView.js 中更新滾動同步邏輯
+useEffect(() => {
+  // 如果不是並排視圖或沒有數據，則不需要設置滾動同步
+  if (viewMode !== 'side-by-side' || !diffData) {
+    return;
+  }
+  
+  // 使用一個共享的鎖標記正在進行的同步操作
+  let syncingLock = false;
+  let syncTimeout = null;
+  
+  // 更健壯的滾動同步函數
+  const syncPanels = (sourcePane, targetPane, sourceId) => {
+    if (syncingLock || !sourcePane || !targetPane) return;
+    
+    // 設置鎖以防止循環
+    syncingLock = true;
+    clearTimeout(syncTimeout);
+    
+    try {
+      // 計算滾動比例
+      const sourceMax = sourcePane.scrollHeight - sourcePane.clientHeight;
+      const targetMax = targetPane.scrollHeight - targetPane.clientHeight;
+      
+      // 防止除以零
+      if (sourceMax <= 0 || targetMax <= 0) {
+        syncingLock = false;
+        return;
+      }
+      
+      const scrollRatio = sourcePane.scrollTop / sourceMax;
+      const targetScrollTop = scrollRatio * targetMax;
+      
+      console.log(`同步從 ${sourceId} 到另一側: 比例=${scrollRatio.toFixed(4)}, 目標=${targetScrollTop.toFixed(2)}px`);
+      
+      // 設置目標面板的滾動位置
+      targetPane.scrollTo({
+        top: targetScrollTop,
+        behavior: 'auto' // 即時同步
+      });
+    } catch (err) {
+      console.error('滾動同步錯誤:', err);
     }
     
-    const handleLeftScroll = () => {
-      if (manualScrolling && rightPaneRef.current && leftPaneRef.current) {
-        rightPaneRef.current.scrollTop = leftPaneRef.current.scrollTop;
-      }
-    };
-    
-    const handleRightScroll = () => {
-      if (manualScrolling && leftPaneRef.current && rightPaneRef.current) {
-        leftPaneRef.current.scrollTop = rightPaneRef.current.scrollTop;
-      }
-    };
-    
-    const leftPane = leftPaneRef.current;
-    const rightPane = rightPaneRef.current;
+    // 延遲釋放鎖，給瀏覽器時間完成滾動
+    syncTimeout = setTimeout(() => {
+      syncingLock = false;
+    }, 20); // 短暫延遲，但比一個幀長一點
+  };
+  
+  // 左側面板滾動事件處理
+  const handleLeftScroll = () => {
+    requestAnimationFrame(() => {
+      syncPanels(leftPaneRef.current, rightPaneRef.current, 'left');
+    });
+  };
+  
+  // 右側面板滾動事件處理
+  const handleRightScroll = () => {
+    requestAnimationFrame(() => {
+      syncPanels(rightPaneRef.current, leftPaneRef.current, 'right');
+    });
+  };
+  
+  // 獲取面板引用
+  const leftPane = leftPaneRef.current;
+  const rightPane = rightPaneRef.current;
+  
+  // 確認引用有效
+  if (!leftPane || !rightPane) {
+    console.warn('滾動同步錯誤: 面板引用無效', {leftPane, rightPane});
+    return;
+  }
+  
+  // 添加事件監聽器
+  leftPane.addEventListener('scroll', handleLeftScroll, { passive: true });
+  rightPane.addEventListener('scroll', handleRightScroll, { passive: true });
+  
+  console.log('滾動事件監聽器已設置', {leftPane, rightPane});
+  
+  // 清理函數
+  return () => {
+    clearTimeout(syncTimeout);
     
     if (leftPane) {
-      leftPane.addEventListener('scroll', handleLeftScroll);
+      leftPane.removeEventListener('scroll', handleLeftScroll);
     }
     
     if (rightPane) {
-      rightPane.addEventListener('scroll', handleRightScroll);
+      rightPane.removeEventListener('scroll', handleRightScroll);
     }
     
-    return () => {
-      if (leftPane) {
-        leftPane.removeEventListener('scroll', handleLeftScroll);
-      }
-      
-      if (rightPane) {
-        rightPane.removeEventListener('scroll', handleRightScroll);
-      }
-    };
-  }, [diffData, viewMode, manualScrolling]); // 添加 manualScrolling 作為依賴項
+    console.log('滾動事件監聽器已移除');
+  };
+}, [diffData, viewMode]);
   
   // 當選定的變更索引變化時，根據需要滾動到視圖
   useEffect(() => {
-    if (selectedChangeIndex !== null && !manualScrolling && diffData) {
+    if (selectedChangeIndex !== null && diffData) {
       const change = diffData.changesSummary[selectedChangeIndex];
       if (change && change.diffIndices && change.diffIndices.length > 0) {
         const diffIndex = change.diffIndices[0];
@@ -72,24 +130,37 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
         
         const element = document.getElementById(elementId);
         if (element) {
+          // 暫時禁用滾動同步，以避免在自動滾動期間觸發同步
+          isScrollingSynced.current = true;
+          
+          // 使用平滑滾動進行導航
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // 滾動完成後恢復滾動同步
+          setTimeout(() => {
+            isScrollingSynced.current = false;
+          }, 500); // 假設滾動動畫大約需要 500ms
         }
       }
     }
-  }, [selectedChangeIndex, diffData, manualScrolling, viewMode]); // 添加 viewMode 作為依賴項
+  }, [selectedChangeIndex, diffData, viewMode]);
   
-  // 處理手動滾動
-  const handleManualScroll = () => {
-    setManualScrolling(true);
-    
-    // 設置一個計時器，在用戶停止滾動一段時間後重設手動滾動狀態
-    const timer = setTimeout(() => {
-      setManualScrolling(false);
-    }, 2000); // 2秒後重設
-    
-    // 返回清除函數，確保在組件卸載或重新渲染時清除計時器
-    return () => clearTimeout(timer);
-  };
+  // 視圖切換後的滾動同步
+  useEffect(() => {
+    // 確保兩個面板初始滾動位置同步
+    if (viewMode === 'side-by-side' && leftPaneRef.current && rightPaneRef.current) {
+      // 使用 requestAnimationFrame 確保在 DOM 更新後執行
+      requestAnimationFrame(() => {
+        // 在視圖切換時重設滾動位置到頂部
+        leftPaneRef.current.scrollTop = 0;
+        rightPaneRef.current.scrollTop = 0;
+        
+        // 重設上次滾動位置記錄
+        lastLeftScrollTop.current = 0;
+        lastRightScrollTop.current = 0;
+      });
+    }
+  }, [viewMode]);
   
   // 當過濾條件或差異數據變化時，過濾顯示的差異
   useEffect(() => {
@@ -109,26 +180,13 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
     setVisibleDiffs(filtered);
   }, [diffData, filters]);
   
-  // 視圖切換後的滾動同步
-  useEffect(() => {
-    // 確保兩個面板初始滾動位置同步
-    if (viewMode === 'side-by-side' && leftPaneRef.current && rightPaneRef.current) {
-      // 使用 requestAnimationFrame 確保在 DOM 更新後執行
-      requestAnimationFrame(() => {
-        // 重置滾動位置到頂部或保持目前位置同步
-        const currentScroll = leftPaneRef.current.scrollTop || 0;
-        rightPaneRef.current.scrollTop = currentScroll;
-      });
-    }
-  }, [viewMode]);
-  
   if (!diffData) return <div className="loading">正在載入差異數據...</div>;
   
   // 在統一視圖中渲染差異
   const renderUnifiedView = () => {
     return (
       <div className="unified-view">
-        <div className="diff-pane" onScroll={handleManualScroll}>
+        <div className="diff-pane">
           {visibleDiffs.map((diff, index) => {
             // 確定是否是選定變更的一部分
             const isSelected = selectedChangeIndex !== null && 
@@ -242,7 +300,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
         </div>
         
         <div className="diff-panes-container">
-          <div className="diff-pane left" ref={leftPaneRef} onScroll={handleManualScroll}>
+          <div className="diff-pane left" ref={leftPaneRef}>
             {leftContent}
           </div>
           
@@ -258,8 +316,6 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
                   key={`indicator-${index}`}
                   className={`change-indicator ${indicatorClass}`}
                   onClick={() => {
-                    // 先禁用手動滾動狀態，以允許自動導航生效
-                    setManualScrolling(false);
                     // 根據變更類型選擇正確的元素ID
                     const elementId = diff.changeType === 'deleted' 
                       ? `diff-side-left-${index}` 
@@ -268,6 +324,9 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
                     // 獲取元素並滾動到視圖中
                     const element = document.getElementById(elementId);
                     if (element) {
+                      // 暫時禁用滾動同步
+                      isScrollingSynced.current = true;
+                      
                       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       
                       // 找到對應的變更索引
@@ -280,11 +339,20 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
                         // 使用 setTimeout 確保滾動完成後再更新選擇的變更
                         setTimeout(() => {
                           // 通知父組件更新選中的變更索引
-                          // 這需要添加一個 onChangeSelect props
                           if (typeof onChangeSelect === 'function') {
                             onChangeSelect(changeIndex);
                           }
+                          
+                          // 滾動完成後恢復滾動同步
+                          setTimeout(() => {
+                            isScrollingSynced.current = false;
+                          }, 400);
                         }, 100);
+                      } else {
+                        // 如果沒有找到對應的變更，仍需要恢復滾動同步
+                        setTimeout(() => {
+                          isScrollingSynced.current = false;
+                        }, 500);
                       }
                     } else {
                       console.warn(`導航錯誤：找不到元素 ${elementId}`);
@@ -295,7 +363,7 @@ function DiffView({ diffData, viewMode, selectedChangeIndex, filters, onChangeSe
             })}
           </div>
           
-          <div className="diff-pane right" ref={rightPaneRef} onScroll={handleManualScroll}>
+          <div className="diff-pane right" ref={rightPaneRef}>
             {rightContent}
           </div>
         </div>
